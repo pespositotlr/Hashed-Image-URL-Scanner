@@ -67,9 +67,10 @@ namespace HashedImageURLScanner.Classes
                             //Found what we're looking for, download the whole book
                             hashDone = true;
                             hashFound = true;
-                            await RunFoundUrlProcess();
+                            await RunFoundUrlProcess(currentUrl);
                             break;
-                        case HttpStatusCode.Forbidden: case HttpStatusCode.NotFound:
+                        case HttpStatusCode.Forbidden:
+                        case HttpStatusCode.NotFound:
                             //Try again later (Units in milliseconds)
                             await Wait(settings.TimeBetweenAttemptsMilliseconds);
                             currentUrl = StringHelper.SetUrlToNextHash(currentUrl);
@@ -81,8 +82,9 @@ namespace HashedImageURLScanner.Classes
                             break;
                         default:
                             //Log that we somehow got some other error
-                            logger.Log(String.Format("Got weird response code: {0}. Current time is: {0}", currentStatusCode.ToString(), DateTime.Now.ToString()));
-                            emailNotifier.SendNotificationEmailError("Main", "Got weird response code: " + currentStatusCode.ToString());
+                            logger.Log(String.Format("Got weird response code: {0}. Current time is: {1}", currentStatusCode.ToString(), DateTime.Now.ToString()));
+                            await Wait(settings.TimeBetweenAttemptsMilliseconds);
+                            //emailNotifier.SendNotificationEmailError("Main", "Got weird response code: " + currentStatusCode.ToString());
                             break;
                     }
 
@@ -127,7 +129,7 @@ namespace HashedImageURLScanner.Classes
                 if (endingHash > 65535)
                     endingHash = 65535;
 
-                if(startingHash <= 65535)
+                if (startingHash <= 65535)
                 {
                     string startingHashString = StringHelper.PadZeroes(startingHash.ToString("X"), 4);
                     string endingHashString = StringHelper.PadZeroes(endingHash.ToString("X"), 4);
@@ -160,7 +162,7 @@ namespace HashedImageURLScanner.Classes
 
             try
             {
-                while(!latestIssueFound)
+                while (!latestIssueFound)
                 {
                     logger.Log("Current ProjectId: " + currentProductId + " NotFoundErrorCount: " + NotFoundErrorCount);
 
@@ -182,14 +184,16 @@ namespace HashedImageURLScanner.Classes
                             NotFoundErrorCount = 0;
                             await Wait(settings.TimeBetweenAttemptsMilliseconds);
                             break;
-                        case HttpStatusCode.Forbidden: case HttpStatusCode.NotFound: case HttpStatusCode.InternalServerError:
+                        case HttpStatusCode.Forbidden:
+                        case HttpStatusCode.NotFound:
+                        case HttpStatusCode.InternalServerError:
                             //You've reached the end of published products
                             NotFoundErrorCount++;
                             //There can be not-founds for one id but then a greater id IS found
                             if (NotFoundErrorCount > MaxNotFoundErrorCount)
-                               latestIssueFound = true;
+                                latestIssueFound = true;
                             else
-                               currentProductId++;
+                                currentProductId++;
                             break;
                         default:
                             currentProductId++;
@@ -212,11 +216,11 @@ namespace HashedImageURLScanner.Classes
                 //Now start searching for this issue by checking all hashes
                 //while(!issueDone)
                 //{
-                    await GetHashForIssueParallel(660, 100);
-                    logger.Log(String.Format("Done searching all hashes for: " + latestImageUrl));
-                    attemptNumber++;
-                    if (hashFound)
-                        issueDone = true;
+                await GetHashForIssueParallel(660, 100);
+                logger.Log(String.Format("Done searching all hashes for: " + latestImageUrl));
+                attemptNumber++;
+                if (hashFound)
+                    issueDone = true;
                 //}
 
             }
@@ -234,13 +238,13 @@ namespace HashedImageURLScanner.Classes
             await Task.Delay(milliseconds);
         }
 
-        private async Task RunFoundUrlProcess()
+        private async Task RunFoundUrlProcess(string foundURL)
         {
-            logger.Log(String.Format("URL found! Found {0} found at {1}", url, DateTime.Now.ToString()));
-            emailNotifier.SendNotificationUrlFound(url);
+            logger.Log(String.Format("URL found! Found {0} found at {1}", foundURL, DateTime.Now.ToString()));
+            emailNotifier.SendNotificationUrlFound(foundURL);
             //await bot.PostMessage(String.Format("URL found! Found {0} found at {1}", url, DateTime.Now.ToString()));
 
-            await WebHelper.DownloadURL(config, url);
+            await WebHelper.DownloadURLNumberedList(config, foundURL, 999);
             return;
         }
 

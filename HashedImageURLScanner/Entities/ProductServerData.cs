@@ -9,7 +9,7 @@ namespace HashedImageURLScanner.Entities
     public class ProductServerData
     {
 
-        public string version { get; set; }
+        public string Version { get; set; }
         public string S3_key { get; set; }
         public string Title { get; set; }
         public string Image_Reflow { get; set; }
