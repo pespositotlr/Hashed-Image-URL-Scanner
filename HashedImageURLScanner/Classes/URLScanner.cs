@@ -141,7 +141,7 @@ namespace HashedImageURLScanner.Classes
             await Task.WhenAll(tasks);
 
             if (hashFound)
-                logger.Log(String.Format("All done! Hash Found: {2}", hashFound));
+                logger.Log(String.Format("All done! Hash Found: {0}", hashFound));
         }
 
         public async Task GetNextIssue(string productUrl, string imageUrl)
