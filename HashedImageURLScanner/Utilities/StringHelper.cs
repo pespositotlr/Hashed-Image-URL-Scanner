@@ -106,10 +106,8 @@ namespace HashedImageURLScanner.Utilities
             return url.Replace(currentIssue, newIssue.ToString());
         }
 
-
         public static string GetProductId(string url)
         {
-
             int startIndex = url.IndexOf("product_id=") + 11;
             int length = 7;
             return url.Substring(startIndex, length);
@@ -122,6 +120,14 @@ namespace HashedImageURLScanner.Utilities
             int length = 14;
             return url.Substring(startIndex, length);
         }
+        public static string GetIssueMiniPrefix(string url)
+        {
+            //Gets the prefix before the issue number
+
+            int startIndex = 51;
+            int length = 8;
+            return url.Substring(startIndex, length);
+        }
 
         public static string ReplaceLastOccurrence(string source, string find, string replace)
         {
@@ -132,7 +138,6 @@ namespace HashedImageURLScanner.Utilities
 
             return source.Remove(place, find.Length).Insert(place, replace);
         }
-
 
         public static string GetJsonResponseFromHTML(string htmlResponse)
         {
