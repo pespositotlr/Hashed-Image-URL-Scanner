@@ -69,6 +69,17 @@ namespace HashedImageURLScanner.Utilities
             //Use the /'s to make sure you replace the right part of the string as it goes through every possible 4-digit hash
             return url.Replace("/" + currentHash + "/", "/" + newHash.ToLower() + "/");
         }
+        public static string SetUrlToHashFromInt(string url, int intValue)
+        {
+            if (intValue >= 65536)
+                return "";
+
+            string currentHash = GetCurrentHash(url);
+            string newHash = PadZeroes(intValue.ToString("X"), 4);
+
+            //Use the /'s to make sure you replace the right part of the string as it goes through every possible 4-digit hash
+            return url.Replace("/" + currentHash + "/", "/" + newHash.ToLower() + "/");
+        }
 
         public static string SetUrlToSpecificHash(string url, string hash)
         {
@@ -129,6 +140,27 @@ namespace HashedImageURLScanner.Utilities
             int endIndex = htmlResponse.IndexOf(";\n            var pages_data =");
             int length = endIndex - startIndex;
             return htmlResponse.Substring(startIndex, length);
+        }
+
+        public static int GetIntFromHash(string hash)
+        {
+            return int.Parse(hash, System.Globalization.NumberStyles.HexNumber);
+        }
+        public static string GetHashFromInt(int intValue)
+        {
+            return intValue.ToString("X");
+        }
+        public static string GetHashFromIntWithPaddedZeroes(int intValue)
+        {
+            return PadZeroes(intValue.ToString("X"), 4);
+        }
+        public static string GetIssueIDFromS3Key(string S3Key)
+        {
+            //Ex: 2f94/browser/ABS_mbj_27537_125514648_001_001_trial/1/
+
+            int startIndex = S3Key.IndexOf("ABS_mbj_") + 14; ;
+            int length = 9;
+            return S3Key.Substring(startIndex, length);
         }
     }
 }

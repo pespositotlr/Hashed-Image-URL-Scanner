@@ -169,9 +169,9 @@ namespace HashedImageURLScanner.Utilities
                         catch (Exception ex)
                         {
                             logger.Log(String.Format("Error downloading page {0}. Current time is {1}. Error message: {1}", i, DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff", CultureInfo.CurrentCulture), ex.ToString()));
-                            logger.Log(String.Format("Trying again in 10 seconds.", i, DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff", CultureInfo.CurrentCulture)));
+                            logger.Log(String.Format("Trying again in 2 seconds.", i, DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff", CultureInfo.CurrentCulture)));
                             emailNotifier.SendNotificationEmailError("DownloadPage", ex.ToString());
-                            Thread.Sleep(10000);
+                            Thread.Sleep(2000);
                             i--;
                             errorCount++;
                         }
@@ -179,7 +179,7 @@ namespace HashedImageURLScanner.Utilities
                 }
                 catch (Exception ex)
                 {
-                    logger.Log(String.Format("Error in downloading book. Current time is {0}. Error: {1}", DateTime.Now.ToString(), ex.ToString()));
+                    logger.Log(String.Format("Error in downloading Book. Current time is {0}. Error: {1}", DateTime.Now.ToString(), ex.ToString()));
                     emailNotifier.SendNotificationEmailError("DownloadBook", ex.ToString());
                     errorCount++;
                 }

@@ -11,6 +11,7 @@ using System.Threading.Tasks;
 
 namespace HashedImageURLScanner.Classes
 {
+
     /// <summary>
     /// Scans specific urls for if a file is found. Does a brute-force search through different ids and hashes to find the latest files.
     /// </summary>
@@ -24,6 +25,7 @@ namespace HashedImageURLScanner.Classes
         bool issueDone;
         string url;
         bool hashFound = false;
+        int remainingTasks = 0;
 
         public URLScanner(string urlToCheck, int maximumAttempts = 100000000, int timeBetweenAttemptsMilliseconds = 3)
         {
@@ -40,16 +42,20 @@ namespace HashedImageURLScanner.Classes
             settings.TimeBetweenAttemptsMilliseconds = timeBetweenAttemptsMilliseconds;
         }
 
-        public async Task GetHashForIssue(string startingHash = "0000", string endingHash = "ffff")
+        public async Task GetHashForIssue(int startingHashInt = 0, int endingHashInt = 65536, int maxLocalAttempts = 65536)
         {
             //await bot.LogToDiscord();
             attemptNumber = 1;
+            int localAttemptNumber = 1;
             TimeSpan t = TimeSpan.FromMilliseconds(settings.TimeBetweenAttemptsMilliseconds);
             string timeBetweenAttemptsString = t.Minutes.ToString();
-            string currentUrl = StringHelper.SetUrlToSpecificHash(url, startingHash);
+            string startingHashString = StringHelper.GetHashFromIntWithPaddedZeroes(startingHashInt);
+            string endingHashString = StringHelper.GetHashFromIntWithPaddedZeroes(endingHashInt);
+            string currentUrl = StringHelper.SetUrlToSpecificHash(url, startingHashString);
+            int currentHashInt = startingHashInt;
             bool hashDone = false;
 
-            logger.Log(String.Format("Beginning scan for issue URL {0} from hash {1} to {2}. Maximum number of attempts is {3}. The current time is {4}", url, startingHash, endingHash, settings.MaximumAttempts, DateTime.Now.ToString()));
+            logger.Log(String.Format("Beginning scan for issue URL {0} from hash {1} to {2}. Maximum number of attempts is {3}. The current time is {4}", url, startingHashString, endingHashString, settings.MaximumAttempts, DateTime.Now.ToString()));
 
             while (!hashDone)
             {
@@ -73,22 +79,25 @@ namespace HashedImageURLScanner.Classes
                         case HttpStatusCode.NotFound:
                             //Try again later (Units in milliseconds)
                             await Wait(settings.TimeBetweenAttemptsMilliseconds);
-                            currentUrl = StringHelper.SetUrlToNextHash(currentUrl);
-                            if (currentUrl == "" || endingHash == StringHelper.GetCurrentHash(currentUrl))
+                            currentHashInt++;
+                            localAttemptNumber++;
+                            currentUrl = StringHelper.SetUrlToHashFromInt(currentUrl, currentHashInt);
+                            if (currentUrl == "" || currentHashInt >= endingHashInt)
                             {
                                 hashDone = true;
-                                logger.Log(String.Format("Reached ending hash of {0}", endingHash));
+                                logger.Log(String.Format("Reached ending hash of {0}", endingHashInt));
                             }
                             break;
                         default:
                             //Log that we somehow got some other error
                             logger.Log(String.Format("Got weird response code: {0}. Current time is: {1}", currentStatusCode.ToString(), DateTime.Now.ToString()));
+                            //Wait and then try this URL again
                             await Wait(settings.TimeBetweenAttemptsMilliseconds);
                             //emailNotifier.SendNotificationEmailError("Main", "Got weird response code: " + currentStatusCode.ToString());
                             break;
                     }
 
-                    if (hashFound || attemptNumber == settings.MaximumAttempts)
+                    if (hashFound || localAttemptNumber == maxLocalAttempts || attemptNumber == settings.MaximumAttempts)
                         hashDone = true;
                     else
                         attemptNumber++;
@@ -105,7 +114,10 @@ namespace HashedImageURLScanner.Classes
             try
             {
                 if (hashDone)
-                    logger.Log(String.Format("All done! (Hash {0} to {1}) Hash Found: {2}", startingHash, endingHash, hashFound));
+                {
+                    remainingTasks--;
+                    logger.Log(String.Format("All done! (Hash {0} to {1}) | Remaining Tasks: {2} | Hash Found: {3}", startingHashString, endingHashString, remainingTasks, hashFound));
+                }
             }
             catch (Exception ex)
             {
@@ -118,7 +130,8 @@ namespace HashedImageURLScanner.Classes
         public async Task GetHashForIssueParallel(int numOfTasks = 660, int hashesToCheckPerTask = 100)
         {
             var tasks = new List<Task>();
-            tasks.Add(GetHashForIssue("0000", "0000"));
+            tasks.Add(GetHashForIssue(0, 0));
+            remainingTasks = numOfTasks;
 
             for (int i = 0; i < numOfTasks; i++)
             {
@@ -131,10 +144,7 @@ namespace HashedImageURLScanner.Classes
 
                 if (startingHash <= 65535)
                 {
-                    string startingHashString = StringHelper.PadZeroes(startingHash.ToString("X"), 4);
-                    string endingHashString = StringHelper.PadZeroes(endingHash.ToString("X"), 4);
-
-                    tasks.Add(GetHashForIssue(startingHashString, endingHashString));
+                    tasks.Add(GetHashForIssue(startingHash, endingHash, hashesToCheckPerTask));
                 }
             }
 
@@ -144,7 +154,7 @@ namespace HashedImageURLScanner.Classes
                 logger.Log(String.Format("All done! Hash Found: {0}", hashFound));
         }
 
-        public async Task GetNextIssue(string productUrl, string imageUrl)
+        public async Task GetNextIssue(string productUrl)
         {
             //await bot.LogToDiscord();
             attemptNumber = 1;
@@ -152,11 +162,12 @@ namespace HashedImageURLScanner.Classes
             string timeBetweenAttemptsString = t.Minutes.ToString();
             int currentProductId = Convert.ToInt32(StringHelper.GetProductId(productUrl));
             bool latestIssueFound = false;
-            string imageUrlPrefix = StringHelper.GetIssuePrefix(imageUrl);
-            string currentProductUrl = String.Format("{0}{1}", config["webserviceURLRoot"], currentProductId);
+            string imageUrlPrefix = StringHelper.GetIssueMiniPrefix(url);
+            string currentProductUrl = String.Format("{0}{1}", config["webserviceProductURLRoot"], currentProductId);
             string latestImageUrl = "";
             int NotFoundErrorCount = 0;
             int MaxNotFoundErrorCount = 1000;
+            List<string> foundIssueIDs = new List<string>();
 
             logger.Log(String.Format("Beginning scan for next issue for URL {0}. Maximum number of attempts is {1}. The current time is {2}", url, settings.MaximumAttempts, DateTime.Now.ToString()));
 
@@ -178,6 +189,7 @@ namespace HashedImageURLScanner.Classes
                             if (product != null && product.S3_key.Contains(imageUrlPrefix))
                             {
                                 latestImageUrl = config["imageBaseURL"] + product.S3_key + "1.jpg";
+                                foundIssueIDs.Add(StringHelper.GetIssueIDFromS3Key(product.S3_key));
                                 logger.Log("Current Latest Image URL: " + latestImageUrl);
                             }
                             currentProductId++;
@@ -201,13 +213,19 @@ namespace HashedImageURLScanner.Classes
                             break;
                     }
 
-                    currentProductUrl = String.Format("{0}{1}", config["webserviceURLRoot"], currentProductId);
+                    currentProductUrl = String.Format("{0}{1}", config["webserviceProductURLRoot"], currentProductId);
                 }
 
                 //Start looking for the next issue to be published with that prefix
                 logger.Log(String.Format("Latest Issue fond."));
                 logger.Log(String.Format("Last Released ProductID: " + currentProductId));
                 logger.Log(String.Format("Latest Image URL for Prefix: " + latestImageUrl));
+
+                logger.Log(String.Format("Found IDs:"));
+                foreach (var issueID in foundIssueIDs)
+                {
+                    logger.Log(issueID);
+                }
 
                 //Search through all hashes for the next issue with that prefix
                 url = StringHelper.SetUrlToNextIssue(latestImageUrl);
@@ -216,11 +234,11 @@ namespace HashedImageURLScanner.Classes
                 //Now start searching for this issue by checking all hashes
                 //while(!issueDone)
                 //{
-                await GetHashForIssueParallel(660, 100);
-                logger.Log(String.Format("Done searching all hashes for: " + latestImageUrl));
-                attemptNumber++;
-                if (hashFound)
-                    issueDone = true;
+                //    await GetHashForIssueParallel(660, 100);
+                //    logger.Log(String.Format("Done searching all hashes for: " + latestImageUrl));
+                //    attemptNumber++;
+                //    if (hashFound)
+                //        issueDone = true;
                 //}
 
             }
