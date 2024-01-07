@@ -137,14 +137,18 @@ namespace HashedImageURLScanner.Utilities
                 }
             }
         }
-
         public static async Task DownloadURLNumberedList(IConfigurationRoot config, string url, int pagesToDownload)
         {
-            string urlToDownload = "";
-            string downloadFolder = @config["localDownloadFolder"]; //Make sure this folder exists or an error will throw. Outputs in ###.jpg format.
+            string downloadFolder = @config["localDownloadFolder"] + "/" + DateTime.Now.ToString("yyyy-MM-dd HH-mm-ss-fff", CultureInfo.CurrentCulture).ToString() + "/"; //Make sure this folder exists or an error will throw. Outputs in ###.jpg format.
             var logger = new Logger(config["localLogLocation"], Convert.ToBoolean(config["logToTextFile"]));
             var emailNotifier = new EmailNotifier(config);
             int errorCount = 0;
+
+            //Create folder based on episodeId if it doesn't exist
+            if (!Directory.Exists(downloadFolder))
+            {
+                Directory.CreateDirectory(downloadFolder);
+            }
 
             using (WebClient client = new WebClient())
             {
@@ -160,15 +164,15 @@ namespace HashedImageURLScanner.Utilities
 
                         try
                         {
-                            logger.Log(String.Format("Downloading file {0} of {1}. Current time is {2}", i, pagesToDownload, DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff", CultureInfo.CurrentCulture)));
-                            await client.DownloadFileTaskAsync(new Uri(url), downloadFolder + DateTime.Now.ToString("yyyy-MM-dd HH-mm-ss-fff", CultureInfo.CurrentCulture).ToString() + "_" + i + ".jpg");
+                            logger.Log(String.Format("Downloading file {0} of {1}. URL: {2} Current time is {3}", i, pagesToDownload, url, DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff", CultureInfo.CurrentCulture)));
+                            await client.DownloadFileTaskAsync(new Uri(url), downloadFolder + i + ".jpg");
                             errorCount = 0;
                             //Set URL to next number
                             url = StringHelper.ReplaceLastOccurrence(url, i + ".jpg", (i + 1) + ".jpg");
                         }
                         catch (Exception ex)
                         {
-                            logger.Log(String.Format("Error downloading page {0}. Current time is {1}. Error message: {1}", i, DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff", CultureInfo.CurrentCulture), ex.ToString()));
+                            logger.Log(String.Format("Error downloading page {0}. URL: {1} Current time is {2}. Error message: {3}", i, url, DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff", CultureInfo.CurrentCulture), ex.ToString()));
                             logger.Log(String.Format("Trying again in 2 seconds.", i, DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff", CultureInfo.CurrentCulture)));
                             emailNotifier.SendNotificationEmailError("DownloadPage", ex.ToString());
                             Thread.Sleep(2000);
